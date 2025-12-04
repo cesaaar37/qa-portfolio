@@ -1,0 +1,47 @@
+Приклад порівняння данних, що відправляються у запиті з данними, що приходять у відповіді на запит.
+Відображення значення через console.log. Використання Snippets
+
+var resJson = pm.response.json();
+var req = JSON.parse(pm.request.body.raw);
+
+var resName = resJson.name;
+console.log("rws: " + resName);
+
+pm.collectionVariables.set("Name_pj_res", req.name);
+console.log("Name_pj_res: " + pm.collectionVariables.get("Name_pj_res"));
+
+
+pm.test("Test project name", function () {
+    pm.expect(resJson.name).to.eql(pm.collectionVariables.get("Name_pj_res")); //порівняння через змінну колекції
+    pm.expect(req.name).to.eql(resJson.name); //порівняння через використання ключів запит\відповідь без створення collectionVariables
+});
+
+
+
+Перевірка, коли кількість символів обмежена 250 символами:
+pm.test("Your test name", function () {
+    pm.expect(resJson.error).to.eql("Field :name is too long (250 characters at most).");
+});
+
+Перевірка, вказано числове значення проекту, що не підтримується:
+pm.test("Check suite_mode", function () {
+    pm.expect(resJson.error).to.contains("Field :suite_mode is not a supported enum value");
+});
+
+
+ - Записуємо все тіло json відповіді у тіло змінної та парсимо по змінним.
+Або напряму з відповіді забираємо значення і записуємо у змінну або виводимо в через concole.log()
+
+var resInJson = pm.response.json();
+var resId = resInJson.id;
+var resName = resInJson.name;
+var resAnnouncement = pm.response.json().announcement;
+
+console.log("resId: " + resId);
+console.log("resName:" + resName);
+console.log("resAnnouncement:" + resAnnouncement);
+console.log("suite_mode:" + pm.response.json().suite_mode);
+
+ - Створення змінної на рівні колекції через Snippet та виведення значення змінної через консоль.
+pm.collectionVariables.set("pj_id", resInJson.id);
+console.log("pj_id:" + pm.collectionVariables.get("pj_id"));

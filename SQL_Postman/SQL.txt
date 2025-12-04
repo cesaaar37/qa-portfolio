@@ -1,0 +1,119 @@
+1.Приклад запиту з групуванням та сортуванням результатів групування:
+select JobTitle, count(*) as employee
+from HumanResources.Employee e (nolock)
+group by JobTitle
+having count(*) > 1
+order by employee;
+
+2.Приклад наповнення шлюзової таблиці данними, що забираємо по OPENQUERY з повязанного сервера.
+-- Очищаємо таблицю перед наповненням
+TRUNCATE TABLE ImportGateway.ImportModule;
+INSERT INTO ImportGateway.ImportModule
+(
+    promotion_name,
+    days_of_delay,
+    body,
+    giveout_commission,
+    commission,
+    annual_giveout_commission,
+    annual_commission,
+    fine,
+    total_commission,
+    available_users,
+    available_user_numbers
+)
+SELECT
+    promotion_name,
+    days_of_delay,
+    body,
+    giveout_commission,
+    commission,
+    annual_giveout_commission,
+    annual_commission,
+    fine,
+    total_commission,
+    available_users,
+    available_user_numbers
+FROM
+    OPENQUERY (*****,
+    'SELECT
+        promotion_name,
+        days_of_delay,
+        body,
+        giveout_commission,
+        commission,
+        annual_giveout_commission,
+        annual_commission,
+        fine,
+        total_commission,
+        available_users,
+        available_user_numbers
+    FROM ImportModules');
+
+3.Приклад розрахунку рейтингу продажів за 2 періоди. Період 1 = 30 днів від поточної дати, період 2 = 31-60 днів від поточної дати.
+declare @a date = GETDATE();
+declare @b date = DATEADD(DAY, -30, GETDATE());
+declare @c date = DATEADD(DAY, -31, GETDATE());
+declare @d date = DATEADD(DAY, -60, GETDATE());
+
+drop table if exists #t;
+drop table if exists #c;
+
+with first_30 as( 
+    select 
+        c.ID as client_id, 
+        l.id as loan_id,
+        c.F211 as Merchant_ID,
+        l.f255 as Merchant_ID,          
+        l.f55 as Order_Status,         
+        c.f333 as Zoodmall_Seller_ID,
+        COUNT(l.id) as kolichestvo_sdeloc
+    from 
+        clients c (nolock)
+    inner join 
+        constants cs (nolock) on cs.id = c.T
+    inner join 
+        loans l (nolock) on cast(c.f211 as nvarchar) = l.F255
+    where 
+        cs.ID = 215 
+        and l.F30 = 'Paid' 
+        and l.Created between @b and @a
+    group by 
+        c.ID, l.id, c.F211, l.f255, l.f55, c.f333  
+)
+select * into #t from first_30;
+
+with second_31_60 as( 
+    select 
+        c.ID as client_id, 
+        l.id as loan_id,
+        c.F211 as Merchant_ID,
+        l.f255 as Merchant_ID,          
+        l.f55 as Order_Status,         
+        c.f333 as Zoodmall_Seller_ID,
+        COUNT(l.id) as kolichestvo_sdeloc
+    from 
+        clients c (nolock)
+    inner join 
+        constants cs (nolock) on cs.id = c.T
+    inner join 
+        loans l (nolock) on cast(c.f211 as nvarchar) = l.F255
+    where 
+        cs.ID = 215 
+        and l.F30 = 'Paid'  -- клиенты мерчанты
+        and l.Created between @d and @c
+    group by 
+        c.ID, l.id, c.F211, l.f255, l.f55, c.f333
+)
+select * into #c from second_31_60;
+
+select 
+    (#t.kolichestvo_sdeloc / #c.kolichestvo_sdeloc) AS reting_prodag, 
+    #t.*, 
+    #c.* 
+from 
+    #t 
+left join 
+    #c on #c.client_id = #t.client_id 
+order by 
+    #t.client_id;
